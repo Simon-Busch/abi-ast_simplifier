@@ -11,7 +11,6 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Data structures to represent ABI entries and contracts
 type ABIEntry struct {
 	Type          		string        `json:"type"`
 	Name          		string        `json:"name,omitempty"`
@@ -33,7 +32,54 @@ type Inheritance struct {
 type ABIFile struct {
 	ContractName string     `json:"contractName,omitempty"`
 	ABI          []ABIEntry `json:"abi"`
-	// Add other fields if necessary
+	AST 					AST 			`json:"ast, omitempty"`
+}
+
+type AST struct {
+	Nodes []ASTNode `json:"nodes"`
+}
+
+type ASTNode struct {
+	ID            int            `json:"id"`
+	NodeType      string         `json:"nodeType"`
+	Name          string         `json:"name,omitempty"`
+	BaseContracts []BaseContract `json:"baseContracts,omitempty"`
+	Nodes         []ASTNode      `json:"nodes,omitempty"` // Child nodes
+}
+type BaseContract struct {
+	ID       int      `json:"id"`
+	NodeType string   `json:"nodeType"`
+	Src      string   `json:"src"`
+	BaseName BaseName `json:"baseName"`
+}
+type BaseName struct {
+	ID                   int    `json:"id"`
+	Name                 string `json:"name"`
+	NodeType             string `json:"nodeType"`
+	ReferencedDeclaration int    `json:"referencedDeclaration"`
+	Src                  string `json:"src"`
+}
+type LibraryName struct {
+	ID                   int    `json:"id"`
+	Name                 string `json:"name"`
+	NodeType             string `json:"nodeType"`
+	ReferencedDeclaration int    `json:"referencedDeclaration"`
+	Src                  string `json:"src"`
+}
+
+
+type TypeName struct {
+	ID               int              `json:"id"`
+	Name             string           `json:"name"`
+	NodeType         string           `json:"nodeType"`
+	Src              string           `json:"src"`
+	StateMutability  string           `json:"stateMutability,omitempty"`
+	TypeDescriptions *TypeDescriptions `json:"typeDescriptions,omitempty"`
+}
+
+type TypeDescriptions struct {
+	TypeIdentifier string `json:"typeIdentifier"`
+	TypeString     string `json:"typeString"`
 }
 
 type Contract struct {
@@ -41,7 +87,7 @@ type Contract struct {
 	Functions []Function
 	Events    []Event
 	Inherits  []string
-	Calls     map[string][]string // Function name to called functions
+	Calls     map[string][]string
 }
 
 type Function struct {
@@ -57,8 +103,7 @@ type Event struct {
 }
 
 func main() {
-	// Specify the data folder containing ABI JSON files
-	dataFolder := "data" // You can modify this path as needed
+	dataFolder := "data"
 
 	contracts, err := parseAllABIs(dataFolder)
 	if err != nil {
@@ -66,49 +111,39 @@ func main() {
 		return
 	}
 
-	// Initialize the application
 	app := tview.NewApplication()
 
-	// Create lists for contracts and functions
 	contractsList := tview.NewList().ShowSecondaryText(false)
 	functionsList := tview.NewList().ShowSecondaryText(false)
 	detailsText := tview.NewTextView().SetDynamicColors(true)
 
-	// Variable to keep track of the selected contract
 	var selectedContract *Contract
 
-	// Populate the contracts list
 	for name := range contracts {
 		contractsList.AddItem(name, "", 0, nil)
 	}
 
-	// Create a flex layout to organize the UI
-	// Initially, only the contractsList is displayed
 	flex := tview.NewFlex().AddItem(contractsList, 0, 1, true)
 
-	// Function to handle contract selection
 	selectContract := func(index int, mainText string) {
 		contract := contracts[mainText]
 		selectedContract = &contract
 
-		// Display inheritance information
 		inheritsText := ""
 		if len(contract.Inherits) > 0 {
-			inheritsText = fmt.Sprintf("Inherits: %v", contract.Inherits)
+			inheritsText = fmt.Sprintf("Inherits: %v\n", contract.Inherits)
 		} else {
-			inheritsText = "No inheritance"
+			inheritsText = "No inheritance\n"
 		}
 		detailsText.SetText("[yellow]" + inheritsText + "[white]")
 
-		// Populate the functions list
 		functionsList.Clear()
 		for _, function := range contract.Functions {
 			functionsList.AddItem(function.Name, "", 0, nil)
 		}
 
-		// Update the layout to include functionsList and detailsText
-		flex.RemoveItem(functionsList) // Ensure functionsList is not already added
-		flex.RemoveItem(detailsText)   // Ensure detailsText is not already added
+		flex.RemoveItem(functionsList)
+		flex.RemoveItem(detailsText)
 		flex.AddItem(functionsList, 0, 1, false).
 			AddItem(detailsText, 0, 2, false)
 
@@ -158,18 +193,15 @@ func main() {
 		detailsText.SetText(functionDetails)
 	})
 
-	// Handle left arrow to go back to contracts list and hide functionsList and detailsText
 	functionsList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyLeft:
-			// Remove functionsList and detailsText from the layout
 			flex.RemoveItem(functionsList)
 			flex.RemoveItem(detailsText)
 			selectedContract = nil // Reset selected contract
 			app.SetFocus(contractsList)
 			return nil
 		case tcell.KeyRight:
-			// No action on right arrow
 			return nil
 		}
 		return event
@@ -179,7 +211,6 @@ func main() {
 	contractsList.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		switch event.Key() {
 		case tcell.KeyRight:
-			// Call the selectContract function directly
 			if contractsList.GetItemCount() == 0 {
 				return nil
 			}
@@ -191,17 +222,15 @@ func main() {
 		return event
 	})
 
-	// Set up the application root and run it
 	if err := app.SetRoot(flex, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
 }
 
-// Function to parse a single ABI file
-func parseABIFile(path string) ([]ABIEntry, error) {
+func parseABIFile(path string) ([]ABIEntry, []string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Try to unmarshal as an array first
@@ -209,20 +238,47 @@ func parseABIFile(path string) ([]ABIEntry, error) {
 	err = json.Unmarshal(data, &abiEntries)
 	if err == nil {
 		// Successfully parsed as array
-		return abiEntries, nil
+		// No 'ast' field, so inheritance is nil
+		return abiEntries, nil, nil
 	}
 
-	// If that fails, try to unmarshal as an object with an 'abi' field
 	var abiFile ABIFile
 	err = json.Unmarshal(data, &abiFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse ABI file %s: %w", path, err)
+		return nil, nil, fmt.Errorf("failed to parse ABI file %s: %w", path, err)
 	}
 
-	return abiFile.ABI, nil
+	var inherits []string
+	if abiFile.AST.Nodes != nil {
+		// Extract inheritance information
+		inherits = extractInheritanceFromAST(abiFile.AST)
+	}
+
+	return abiFile.ABI, inherits, nil
 }
 
-// Function to parse all ABI files in the data folder
+func extractInheritanceFromAST(ast AST) []string {
+	var inherits []string
+	for _, node := range ast.Nodes {
+			if node.NodeType == "ContractDefinition" {
+					inherits = append(inherits, extractInheritanceFromNode(node)...)
+					break
+			}
+	}
+	return inherits
+}
+
+func extractInheritanceFromNode(node ASTNode) []string {
+	var inherits []string
+	if node.NodeType == "ContractDefinition" {
+			fmt.Printf("Processing InheritanceSpecifier: %s\n", node.Name)
+			for _, baseContract := range node.BaseContracts {
+					inherits = append(inherits, baseContract.BaseName.Name)
+			}
+	}
+	return inherits
+}
+
 func parseAllABIs(dataFolder string) (map[string]Contract, error) {
 	contracts := make(map[string]Contract)
 	err := filepath.Walk(dataFolder, func(path string, info os.FileInfo, err error) error {
@@ -230,23 +286,24 @@ func parseAllABIs(dataFolder string) (map[string]Contract, error) {
 			return fmt.Errorf("error accessing file %s: %w", path, err)
 		}
 		if !info.IsDir() && filepath.Ext(path) == ".json" {
-			abiEntries, err := parseABIFile(path)
+			abiEntries, inherits, err := parseABIFile(path)
 			if err != nil {
 				return fmt.Errorf("error parsing file %s: %w", path, err)
 			}
 			contractName := filepath.Base(path)
-			contractName = contractName[:len(contractName)-len(filepath.Ext(contractName))] // Remove extension
+			contractName = contractName[:len(contractName)-len(filepath.Ext(contractName))]
 			contract := Contract{
-				Name:  contractName,
-				Calls: make(map[string][]string),
+				Name:     contractName,
+				Calls:    make(map[string][]string),
+				Inherits: inherits,
 			}
 			for _, entry := range abiEntries {
 				switch entry.Type {
 				case "function":
 					function := Function{
-						Name:    entry.Name,
-						Inputs:  entry.Inputs,
-						Outputs: entry.Outputs,
+						Name:            entry.Name,
+						Inputs:          entry.Inputs,
+						Outputs:         entry.Outputs,
 						StateMutability: entry.StateMutability,
 					}
 					contract.Functions = append(contract.Functions, function)
@@ -256,10 +313,8 @@ func parseAllABIs(dataFolder string) (map[string]Contract, error) {
 						Inputs: entry.Inputs,
 					}
 					contract.Events = append(contract.Events, event)
-				// Add more cases if needed
 				}
 			}
-			// Placeholder for inheritance: You might populate Inherits here if you have that data
 			contracts[contractName] = contract
 		}
 		return nil
