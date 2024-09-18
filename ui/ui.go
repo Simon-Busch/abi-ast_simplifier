@@ -31,10 +31,10 @@ func UpdateUI(contractsList *widgets.List, functionsList *widgets.List, detailsP
 
 func validateSelectedRow( list *widgets.List) {
 	if len(list.Rows) == 0 {
-			list.SelectedRow = 0
+		list.SelectedRow = 0
 	} else if list.SelectedRow >= len(list.Rows) {
-			list.SelectedRow = len(list.Rows) - 1
+		list.SelectedRow = len(list.Rows) - 1
 	} else if list.SelectedRow < 0 {
-			list.SelectedRow = 0
+		list.SelectedRow = 0
 	}
 }
