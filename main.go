@@ -36,6 +36,13 @@ func main() {
 	functionsList.TextStyle = termui.NewStyle(termui.ColorGreen)
 	functionsList.WrapText = false
 
+
+	// TODO 0XSI finish this
+	constructorData := widgets.NewList()
+	constructorData.Title = "Constructor Data"
+	constructorData.TextStyle = termui.NewStyle(termui.ColorGreen)
+	constructorData.WrapText = false
+
 	detailsParagraph := widgets.NewParagraph()
 	detailsParagraph.Title = "Details"
 	detailsParagraph.WrapText = true
@@ -124,7 +131,18 @@ func main() {
 				} else {
 					inheritsText = "No inheritance\n"
 				}
-				detailsParagraph.Text = fmt.Sprintf("%s\n%s",inheritsText, contract.Pragma)
+				constructorText := ""
+				if contract.Constructor != nil {
+					constructorText = "Constructor:\n"
+					for _, input := range contract.Constructor.Inputs {
+						constructorText += fmt.Sprintf("  - %s: %s\n", input.Name, input.Type)
+					}
+					constructorText += fmt.Sprintf("State Mutability: [%s](fg:green)\n", contract.Constructor.StateMutability)
+				} else {
+					constructorText = "No constructor\n"
+				}
+				detailsParagraph.Text = fmt.Sprintf("%s\n%s \n%s",inheritsText, contract.Pragma, constructorText)
+
 
 				// Switch selection to functions list
 				functionsListSelected = true

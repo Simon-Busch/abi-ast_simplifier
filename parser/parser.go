@@ -8,6 +8,20 @@ import (
 	"path/filepath"
 )
 
+
+
+// ABIFile represents the structure of the ABI JSON file.
+type ABIFile struct {
+	ContractName string     `json:"contractName,omitempty"`
+	ABI          []ABIEntry `json:"abi"`
+	AST          AST        `json:"ast,omitempty"`
+}
+
+// AST represents the Abstract Syntax Tree of the contract.
+type AST struct {
+	Nodes []ASTNode `json:"nodes"`
+}
+
 // ABIEntry represents an entry in the ABI array.
 type ABIEntry struct {
 	Type            string  `json:"type"`
@@ -21,18 +35,6 @@ type ABIEntry struct {
 type Param struct {
 	Name string `json:"name"`
 	Type string `json:"type"`
-}
-
-// ABIFile represents the structure of the ABI JSON file.
-type ABIFile struct {
-	ContractName string     `json:"contractName,omitempty"`
-	ABI          []ABIEntry `json:"abi"`
-	AST          AST        `json:"ast,omitempty"`
-}
-
-// AST represents the Abstract Syntax Tree of the contract.
-type AST struct {
-	Nodes []ASTNode `json:"nodes"`
 }
 
 // ASTNode represents a node in the AST.
@@ -92,11 +94,17 @@ type TypeDescriptions struct {
 
 // Contract represents a smart contract with its functions and events.
 type Contract struct {
-	Name      string
-	Functions []*Function
-	Events    []*Event
-	Inherits  []string
-	Pragma    string
+	Name      	string
+	Functions 	[]*Function
+	Events    	[]*Event
+	Constructor *Constructor
+	Inherits  	[]string
+	Pragma    	string
+}
+
+type Constructor struct {
+	Inputs 					[]Param
+	StateMutability string
 }
 
 // Function represents a function in a contract.
@@ -148,6 +156,13 @@ func ParseABIFile(path string) (*Contract, error) {
 					Inputs: entry.Inputs,
 				}
 				contract.Events = append(contract.Events, event)
+			case "constructor":
+				constructor := &Constructor{
+					Inputs:          entry.Inputs,
+					StateMutability: entry.StateMutability,
+				}
+				fmt.Println(constructor)
+				contract.Constructor = constructor
 			}
 		}
 		return contract, nil
@@ -187,6 +202,12 @@ func ParseABIFile(path string) (*Contract, error) {
 				Inputs: entry.Inputs,
 			}
 			contract.Events = append(contract.Events, event)
+		case "constructor":
+			constructor := &Constructor{
+				Inputs:          entry.Inputs,
+				StateMutability: entry.StateMutability,
+			}
+			contract.Constructor = constructor
 		}
 	}
 
