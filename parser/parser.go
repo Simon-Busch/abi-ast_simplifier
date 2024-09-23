@@ -12,59 +12,59 @@ import (
 
 // ABIFile represents the structure of the ABI JSON file.
 type ABIFile struct {
-	ContractName string     `json:"contractName,omitempty"`
-	ABI          []ABIEntry `json:"abi"`
-	AST          AST        `json:"ast,omitempty"`
+	ContractName 				string     `json:"contractName,omitempty"`
+	ABI          				[]ABIEntry `json:"abi"`
+	AST          				AST        `json:"ast,omitempty"`
 }
 
 // AST represents the Abstract Syntax Tree of the contract.
 type AST struct {
-	Nodes []ASTNode `json:"nodes"`
+	Nodes 							[]ASTNode `json:"nodes"`
 }
 
 // ABIEntry represents an entry in the ABI array.
 type ABIEntry struct {
-	Type            string  `json:"type"`
-	Name            string  `json:"name,omitempty"`
-	Inputs          []Param `json:"inputs,omitempty"`
-	Outputs         []Param `json:"outputs,omitempty"`
-	StateMutability string  `json:"stateMutability,omitempty"`
+	Type            		string  `json:"type"`
+	Name            		string  `json:"name,omitempty"`
+	Inputs          		[]Param `json:"inputs,omitempty"`
+	Outputs         		[]Param `json:"outputs,omitempty"`
+	StateMutability 		string  `json:"stateMutability,omitempty"`
 }
 
 // Param represents a parameter in a function or event.
 type Param struct {
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Name 								string `json:"name"`
+	Type 								string `json:"type"`
 }
 
 // ASTNode represents a node in the AST.
 type ASTNode struct {
-	ID               int             `json:"id"`
-	NodeType         string          `json:"nodeType"`
-	Name             string          `json:"name,omitempty"`
-	Nodes            []ASTNode       `json:"nodes,omitempty"`
-	BaseContracts    []BaseContract  `json:"baseContracts,omitempty"`
-	Literals         []string        `json:"literals,omitempty"`
-	Parameters       *ParameterList  `jsfon:"parameters,omitempty"`
-	ReturnParameters *ParameterList  `json:"returnParameters,omitempty"`
-	Visibility       string          `json:"visibility,omitempty"`
-	StateMutability  string          `json:"stateMutability,omitempty"`
-	Kind             string          `json:"kind,omitempty"`
-	TypeName         *TypeName       `json:"typeName,omitempty"`
-	StorageLocation  string          `json:"storageLocation,omitempty"`
+	ID               		int             `json:"id"`
+	NodeType         		string          `json:"nodeType"`
+	Name             		string          `json:"name,omitempty"`
+	Nodes            		[]ASTNode       `json:"nodes,omitempty"`
+	BaseContracts    		[]BaseContract  `json:"baseContracts,omitempty"`
+	Literals         		[]string        `json:"literals,omitempty"`
+	Parameters       		*ParameterList  `jsfon:"parameters,omitempty"`
+	ReturnParameters 		*ParameterList  `json:"returnParameters,omitempty"`
+	Visibility       		string          `json:"visibility,omitempty"`
+	StateMutability  		string          `json:"stateMutability,omitempty"`
+	Kind             		string          `json:"kind,omitempty"`
+	TypeName         		*TypeName       `json:"typeName,omitempty"`
+	StorageLocation  		string          `json:"storageLocation,omitempty"`
 }
 
 // ParameterList represents a list of parameters.
 type ParameterList struct {
-	Parameters []ASTNode `json:"parameters"`
+	Parameters 					[]ASTNode `json:"parameters"`
 }
 
 // BaseContract represents a base contract in inheritance.
 type BaseContract struct {
-	ID       int      `json:"id"`
-	NodeType string   `json:"nodeType"`
-	Src      string   `json:"src"`
-	BaseName BaseName `json:"baseName"`
+	ID       						int      `json:"id"`
+	NodeType 						string   `json:"nodeType"`
+	Src      						string   `json:"src"`
+	BaseName 						BaseName `json:"baseName"`
 }
 
 // BaseName represents the name of a base contract.
@@ -78,47 +78,47 @@ type BaseName struct {
 
 // TypeName represents the type of a variable or parameter.
 type TypeName struct {
-	ID               int               `json:"id"`
-	Name             string            `json:"name"`
-	NodeType         string            `json:"nodeType"`
-	Src              string            `json:"src"`
-	StateMutability  string            `json:"stateMutability,omitempty"`
-	TypeDescriptions *TypeDescriptions `json:"typeDescriptions,omitempty"`
+	ID               			int               `json:"id"`
+	Name             			string            `json:"name"`
+	NodeType         			string            `json:"nodeType"`
+	Src              			string            `json:"src"`
+	StateMutability  			string            `json:"stateMutability,omitempty"`
+	TypeDescriptions 			*TypeDescriptions `json:"typeDescriptions,omitempty"`
 }
 
 // TypeDescriptions provides type information.
 type TypeDescriptions struct {
-	TypeIdentifier string `json:"typeIdentifier"`
-	TypeString     string `json:"typeString"`
+	TypeIdentifier 				string `json:"typeIdentifier"`
+	TypeString     				string `json:"typeString"`
 }
 
 // Contract represents a smart contract with its functions and events.
 type Contract struct {
-	Name      	string
-	Functions 	[]*Function
-	Events    	[]*Event
-	Constructor *Constructor
-	Inherits  	[]string
-	Pragma    	string
+	Name      						string
+	Functions 						[]*Function
+	Events    						[]*Event
+	Constructor 					*Constructor
+	Inherits  						[]string
+	Pragma    						string
 }
 
 type Constructor struct {
-	Inputs 					[]Param
-	StateMutability string
+	Inputs 								[]Param
+	StateMutability 			string
 }
 
 // Function represents a function in a contract.
 type Function struct {
-	Name            string
-	Inputs          []Param
-	Outputs         []Param
-	StateMutability string
+	Name            			string
+	Inputs          			[]Param
+	Outputs         			[]Param
+	StateMutability 			string
 }
 
 // Event represents an event in a contract.
 type Event struct {
-	Name   string
-	Inputs []Param
+	Name   								string
+	Inputs 								[]Param
 }
 
 // ParseABIFile parses a single ABI file and extracts the Contract information.

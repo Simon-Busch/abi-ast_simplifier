@@ -137,11 +137,14 @@ func main() {
 					for _, input := range contract.Constructor.Inputs {
 						constructorText += fmt.Sprintf("  - %s: %s\n", input.Name, input.Type)
 					}
+					if len(contract.Constructor.Inputs) == 0 {
+						constructorText += "  - No inputs\n"
+					}
 					constructorText += fmt.Sprintf("State Mutability: [%s](fg:green)\n", contract.Constructor.StateMutability)
 				} else {
 					constructorText = "No constructor\n"
 				}
-				detailsParagraph.Text = fmt.Sprintf("%s\n%s \n%s",inheritsText, contract.Pragma, constructorText)
+				detailsParagraph.Text = fmt.Sprintf("%s\n\n%s\n\n%s",inheritsText, contract.Pragma, constructorText)
 
 
 				// Switch selection to functions list
