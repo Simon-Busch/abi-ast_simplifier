@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/Simon-Busch/abi_simplifier/parser"
 	"github.com/Simon-Busch/abi_simplifier/ui"
@@ -12,213 +13,311 @@ import (
 )
 
 func main() {
-	dataFolder := "data"
+    dataFolder := "data"
 
-	contracts, err := parser.ParseAllABIs(dataFolder)
-	if err != nil {
-			fmt.Println("Error parsing ABI files:", err)
-			return
-	}
+    contracts, err := parser.ParseAllContracts(dataFolder)
+    if err != nil {
+        fmt.Println("Error parsing contract files:", err)
+        return
+    }
 
-	if err := termui.Init(); err != nil {
-			log.Fatalf("failed to initialize termui: %v", err)
-	}
-	defer termui.Close()
+    if err := termui.Init(); err != nil {
+        log.Fatalf("failed to initialize termui: %v", err)
+    }
+    defer termui.Close()
 
-	// Create widgets
-	contractsList := widgets.NewList()
-	contractsList.Title = "Contracts"
-	contractsList.TextStyle = termui.NewStyle(termui.ColorYellow)
-	contractsList.WrapText = false
+    // Create widgets
+    contractsList := widgets.NewList()
+    contractsList.Title = "Contracts"
+    contractsList.TextStyle = termui.NewStyle(termui.ColorYellow)
+    contractsList.WrapText = false
 
-	functionsList := widgets.NewList()
-	functionsList.Title = "Functions"
-	functionsList.TextStyle = termui.NewStyle(termui.ColorGreen)
-	functionsList.WrapText = false
+    detailsList := widgets.NewList()
+    detailsList.Title = "Details"
+    detailsList.TextStyle = termui.NewStyle(termui.ColorGreen)
+    detailsList.WrapText = false
 
+    codeParagraph := widgets.NewParagraph()
+    codeParagraph.Title = "Code"
+    codeParagraph.WrapText = true
 
-	// TODO 0XSI finish this
-	constructorData := widgets.NewList()
-	constructorData.Title = "Constructor Data"
-	constructorData.TextStyle = termui.NewStyle(termui.ColorGreen)
-	constructorData.WrapText = false
+    // Populate contracts list
+    var contractNames []string
+    for name := range contracts {
+        contractNames = append(contractNames, name)
+    }
+    contractsList.Rows = contractNames
+    contractsList.SelectedRow = 0
 
-	detailsParagraph := widgets.NewParagraph()
-	detailsParagraph.Title = "Details"
-	detailsParagraph.WrapText = true
+    // Variables to keep track of selections
+    var selectedContract *parser.Contract
+    var contractsListSelected = true  // Initially, contracts list is selected
+    var detailsListSelected = false   // Details list is not selected
 
-	// Populate contracts list
-	var contractNames []string
-	for name := range contracts {
-			contractNames = append(contractNames, name)
-	}
-	contractsList.Rows = contractNames
-	contractsList.SelectedRow = 0
+    ui.UpdateUI(
+        contractsList,
+        detailsList,
+        codeParagraph,
+        contractsListSelected,
+        detailsListSelected,
+    )
 
-	// Variables to keep track of selections
-	var selectedContract *parser.Contract
-	var selectedFunction *parser.Function
-	var contractsListSelected = true  // Initially, contracts list is selected
-	var functionsListSelected = false // Functions list is not selected
+    // Event handling
+    uiEvents := termui.PollEvents()
+    for {
+        e := <-uiEvents
+        switch e.ID {
+        case "q", "<C-c>":
+            return
+        case "<Resize>":
+            ui.UpdateUI(
+                contractsList,
+                detailsList,
+                codeParagraph,
+                contractsListSelected,
+                detailsListSelected,
+            )
+        case "<Down>":
+            if contractsListSelected {
+                if len(contractsList.Rows) > 0 {
+                    contractsList.ScrollDown()
+                }
+            } else if detailsListSelected {
+                if len(detailsList.Rows) > 0 {
+                    detailsList.ScrollDown()
+                }
+            }
+        case "<Up>":
+            if contractsListSelected {
+                if len(contractsList.Rows) > 0 {
+                    contractsList.ScrollUp()
+                }
+            } else if detailsListSelected {
+                if len(detailsList.Rows) > 0 {
+                    detailsList.ScrollUp()
+                }
+            }
+        case "<Right>":
+            if contractsListSelected {
+                // Contract selected, show details
+                if len(contractsList.Rows) == 0 {
+                    continue
+                }
+                contractName := contractsList.Rows[contractsList.SelectedRow]
+                contract := contracts[contractName]
+                selectedContract = contract
 
-	ui.UpdateUI(
-		contractsList,
-		functionsList,
-		detailsParagraph,
-		contractsListSelected,
-		functionsListSelected,
-	)
+                // Populate details list with functions, variables, events, structs, enums
+                var details []string
+                details = append(details, "[Functions](fg:cyan)")
+                for _, function := range contract.Functions {
+                    details = append(details, "  "+function.Name)
+                }
+                details = append(details, "[Variables](fg:cyan)")
+                for _, variable := range contract.Variables {
+                    details = append(details, "  "+variable.Name)
+                }
+                details = append(details, "[Events](fg:cyan)")
+                for _, event := range contract.Events {
+                    details = append(details, "  "+event.Name)
+                }
+                details = append(details, "[Structs](fg:cyan)")
+                for _, strct := range contract.Structs {
+                    details = append(details, "  "+strct.Name)
+                }
+                details = append(details, "[Enums](fg:cyan)")
+                for _, enum := range contract.Enums {
+                    details = append(details, "  "+enum.Name)
+                }
 
-	// Event handling
-	uiEvents := termui.PollEvents()
-	for {
-		e := <-uiEvents
-		switch e.ID {
-		case "q", "<C-c>":
-			return
-		case "<Resize>":
-			ui.UpdateUI(
-				contractsList,
-				functionsList,
-				detailsParagraph,
-				contractsListSelected,
-				functionsListSelected,
-			)
-		case "<Down>":
-			if contractsListSelected {
-				if len(contractsList.Rows) > 0 {
-					contractsList.ScrollDown()
-				}
-			} else if functionsListSelected {
-				if len(functionsList.Rows) > 0 {
-					functionsList.ScrollDown()
-				}
-			}
-		case "<Up>":
-			if contractsListSelected {
-				if len(contractsList.Rows) > 0 {
-					contractsList.ScrollUp()
-				}
-			} else if functionsListSelected {
-				if len(functionsList.Rows) > 0 {
-					functionsList.ScrollUp()
-				}
-			}
-		case "<Right>":
-			if contractsListSelected {
-				// Contract selected, show functions
-				if len(contractsList.Rows) == 0 {
-					continue
-				}
-				contractName := contractsList.Rows[contractsList.SelectedRow]
-				contract := contracts[contractName]
-				selectedContract = contract
+                detailsList.Rows = details
+                detailsList.SelectedRow = 0 // Reset SelectedRow
 
-				// Populate functions list
-				var functionNames []string
-				for _, function := range contract.Functions {
-					functionNames = append(functionNames, function.Name)
-				}
-				functionsList.Rows = functionNames
-				functionsList.SelectedRow = 0 // Reset SelectedRow
+                detailsList.Title = "Details of " + contract.Name
 
-				functionsList.Title = "Functions of " + contract.Name
+                // Update code paragraph with contract summary
+                codeText := fmt.Sprintf("Contract: %s\n", contract.Name)
+                codeText += fmt.Sprintf("Pragma: %s\n", contract.Pragma)
+                if len(contract.Inherits) > 0 {
+                    codeText += fmt.Sprintf("Inherits: %v\n", contract.Inherits)
+                } else {
+                    codeText += "Inherits: None\n"
+                }
+                codeParagraph.Text = codeText
 
-				// Update details
-				inheritsText := ""
-				if len(contract.Inherits) > 0 {
-					inheritsText = fmt.Sprintf("Inherits:[%v](fg:green)\n", contract.Inherits)
-				} else {
-					inheritsText = "No inheritance\n"
-				}
-				constructorText := ""
-				if contract.Constructor != nil {
-					constructorText = "Constructor:\n"
-					for _, input := range contract.Constructor.Inputs {
-						constructorText += fmt.Sprintf("  - %s: %s\n", input.Name, input.Type)
-					}
-					if len(contract.Constructor.Inputs) == 0 {
-						constructorText += "  - No inputs\n"
-					}
-					constructorText += fmt.Sprintf("State Mutability: [%s](fg:green)\n", contract.Constructor.StateMutability)
-				} else {
-					constructorText = "No constructor\n"
-				}
-				detailsParagraph.Text = fmt.Sprintf("%s\n\n%s\n\n%s",inheritsText, contract.Pragma, constructorText)
+                // Switch selection to details list
+                detailsListSelected = true
+                contractsListSelected = false
+                ui.UpdateUI(
+                    contractsList,
+                    detailsList,
+                    codeParagraph,
+                    contractsListSelected,
+                    detailsListSelected,
+                )
+            } else if detailsListSelected {
+                // Item selected, show code/details
+                if selectedContract == nil || len(detailsList.Rows) == 0 {
+                    continue
+                }
+                selectedRow := detailsList.Rows[detailsList.SelectedRow]
+                if strings.HasPrefix(selectedRow, "[") {
+                    // Do nothing for section headers
+                    continue
+                }
 
+                // Determine the section type based on previous headers
+                index := detailsList.SelectedRow
+                itemType := ""
+                for i := index; i >= 0; i-- {
+                    row := detailsList.Rows[i]
+                    if strings.HasPrefix(row, "[") {
+                        // Remove formatting to get the item type
+                        itemType = strings.Trim(row, "[]()fg:cyan")
+                        break
+                    }
+                }
 
-				// Switch selection to functions list
-				functionsListSelected = true
-				contractsListSelected = false
-				ui.UpdateUI(
-					contractsList,
-					functionsList,
-					detailsParagraph,
-					contractsListSelected,
-					functionsListSelected,
-				)
-			} else if functionsListSelected {
-				// Function selected, show details
-				if selectedContract == nil || len(functionsList.Rows) == 0 {
-					continue
-				}
-				functionName := functionsList.Rows[functionsList.SelectedRow]
-				for _, fn := range selectedContract.Functions {
-					if fn.Name == functionName {
-						selectedFunction = fn
-						break
-					}
-				}
-				if selectedFunction != nil {
-					functionDetails := fmt.Sprintf("Function: [%s](fg:green)\n", selectedFunction.Name)
-					if len(selectedFunction.Inputs) > 0 {
-						functionDetails += "Inputs:\n"
-						for _, input := range selectedFunction.Inputs {
-							functionDetails += fmt.Sprintf("  - %s: %s\n", input.Name, input.Type)
-						}
-					}
-					functionDetails += fmt.Sprintf("State Mutability: [%s](fg:green)\n", selectedFunction.StateMutability)
-					if len(selectedFunction.Outputs) > 0 {
-						functionDetails += "Outputs:\n"
-						for _, output := range selectedFunction.Outputs {
-							functionDetails += fmt.Sprintf("  - %s: %s\n", output.Name, output.Type)
-						}
-					}
-					detailsParagraph.Text = functionDetails
-					ui.UpdateUI(
-						contractsList,
-						functionsList,
-						detailsParagraph,
-						contractsListSelected,
-						functionsListSelected,
-					)
-				}
-			}
-		case "<Left>":
-			if functionsListSelected {
-				// Go back to contracts list
-				functionsListSelected = false
-				contractsListSelected = true
-				selectedContract = nil
-				functionsList.Rows = []string{}
-				functionsList.Title = "Functions"
-				functionsList.SelectedRow = 0
-				detailsParagraph.Text = ""
-				ui.UpdateUI(
-					contractsList,
-					functionsList,
-					detailsParagraph,
-					contractsListSelected,
-					functionsListSelected,
-				)
-			}
-		}
-		ui.UpdateUI(
-			contractsList,
-			functionsList,
-			detailsParagraph,
-			contractsListSelected,
-			functionsListSelected,
-		)
-	}
+                itemName := strings.TrimSpace(selectedRow)
+                switch itemType {
+                case "Functions":
+                    var selectedFunction parser.Function
+                    for _, fn := range selectedContract.Functions {
+                        if fn.Name == itemName {
+                            selectedFunction = fn
+                            break
+                        }
+                    }
+                    // Display function details
+                    functionDetails := fmt.Sprintf("Function: %s\n", selectedFunction.Name)
+                    if len(selectedFunction.Parameters) > 0 {
+                        functionDetails += "Parameters:\n"
+                        for _, param := range selectedFunction.Parameters {
+                            functionDetails += fmt.Sprintf("  - %s: %s\n", param.Name, param.Type)
+                        }
+                    }
+                    if len(selectedFunction.ReturnParameters) > 0 {
+                        functionDetails += "Returns:\n"
+                        for _, param := range selectedFunction.ReturnParameters {
+                            functionDetails += fmt.Sprintf("  - %s: %s\n", param.Name, param.Type)
+                        }
+                    }
+                    if len(selectedFunction.Modifiers) > 0 {
+                        functionDetails += "Modifiers:\n"
+                        for _, mod := range selectedFunction.Modifiers {
+                            functionDetails += fmt.Sprintf("  - %s\n", mod)
+                        }
+                    }
+                    functionDetails += fmt.Sprintf("Visibility: %s\n", selectedFunction.Visibility)
+                    functionDetails += fmt.Sprintf("State Mutability: %s\n", selectedFunction.StateMutability)
+                    codeParagraph.Text = functionDetails
+                case "Variables":
+                    var selectedVariable parser.Variable
+                    for _, v := range selectedContract.Variables {
+                        if v.Name == itemName {
+                            selectedVariable = v
+                            break
+                        }
+                    }
+                    // Display variable details
+                    variableDetails := fmt.Sprintf("Variable: %s\n", selectedVariable.Name)
+                    variableDetails += fmt.Sprintf("Type: %s\n", selectedVariable.Type)
+                    variableDetails += fmt.Sprintf("Visibility: %s\n", selectedVariable.Visibility)
+                    if selectedVariable.Constant {
+                        variableDetails += "Constant: true\n"
+                    }
+                    if selectedVariable.Mutability != "" {
+                        variableDetails += fmt.Sprintf("Mutability: %s\n", selectedVariable.Mutability)
+                    }
+                    if selectedVariable.Value != "" {
+                        variableDetails += fmt.Sprintf("Value: %s\n", selectedVariable.Value)
+                    }
+                    codeParagraph.Text = variableDetails
+                case "Events":
+                    var selectedEvent parser.Event
+                    for _, e := range selectedContract.Events {
+                        if e.Name == itemName {
+                            selectedEvent = e
+                            break
+                        }
+                    }
+                    // Display event details
+                    eventDetails := fmt.Sprintf("Event: %s\n", selectedEvent.Name)
+                    if len(selectedEvent.Parameters) > 0 {
+                        eventDetails += "Parameters:\n"
+                        for _, param := range selectedEvent.Parameters {
+                            eventDetails += fmt.Sprintf("  - %s: %s\n", param.Name, param.Type)
+                        }
+                    }
+                    codeParagraph.Text = eventDetails
+                case "Structs":
+                    var selectedStruct parser.Struct
+                    for _, s := range selectedContract.Structs {
+                        if s.Name == itemName {
+                            selectedStruct = s
+                            break
+                        }
+                    }
+                    // Display struct details
+                    structDetails := fmt.Sprintf("Struct: %s\n", selectedStruct.Name)
+                    if len(selectedStruct.Members) > 0 {
+                        structDetails += "Members:\n"
+                        for _, member := range selectedStruct.Members {
+                            structDetails += fmt.Sprintf("  - %s: %s\n", member.Name, member.Type)
+                        }
+                    }
+                    codeParagraph.Text = structDetails
+                case "Enums":
+                    var selectedEnum parser.Enum
+                    for _, e := range selectedContract.Enums {
+                        if e.Name == itemName {
+                            selectedEnum = e
+                            break
+                        }
+                    }
+                    // Display enum details
+                    enumDetails := fmt.Sprintf("Enum: %s\n", selectedEnum.Name)
+                    if len(selectedEnum.Values) > 0 {
+                        enumDetails += "Values:\n"
+                        for _, value := range selectedEnum.Values {
+                            enumDetails += fmt.Sprintf("  - %s\n", value)
+                        }
+                    }
+                    codeParagraph.Text = enumDetails
+                }
+                ui.UpdateUI(
+                    contractsList,
+                    detailsList,
+                    codeParagraph,
+                    contractsListSelected,
+                    detailsListSelected,
+                )
+            }
+        case "<Left>":
+            if detailsListSelected {
+                // Go back to contracts list
+                detailsListSelected = false
+                contractsListSelected = true
+                selectedContract = nil
+                detailsList.Rows = []string{}
+                detailsList.Title = "Details"
+                detailsList.SelectedRow = 0
+                codeParagraph.Text = ""
+                ui.UpdateUI(
+                    contractsList,
+                    detailsList,
+                    codeParagraph,
+                    contractsListSelected,
+                    detailsListSelected,
+                )
+            }
+        }
+        ui.UpdateUI(
+            contractsList,
+            detailsList,
+            codeParagraph,
+            contractsListSelected,
+            detailsListSelected,
+        )
+    }
 }

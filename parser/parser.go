@@ -2,349 +2,545 @@
 package parser
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
+    "encoding/json"
+    "fmt"
+    "os"
+    "path/filepath"
+    "strings"
 )
 
+// Contract represents a smart contract with all its components.
+type Contract struct {
+    Name        string
+    Pragma      string
+    Imports     []Import
+    Inherits    []string
+    Variables   []Variable
+    Functions   []Function
+    Events      []Event
+    Modifiers   []Modifier
+    Structs     []Struct
+    Enums       []Enum
+}
 
+// Import represents an import directive in Solidity.
+type Import struct {
+    AbsolutePath string
+    File         string
+    Alias        string
+}
 
-// ABIFile represents the structure of the ABI JSON file.
+// Variable represents a state variable declaration.
+type Variable struct {
+    Name             string
+    Type             string
+    Visibility       string
+    StateVariable    bool
+    StorageLocation  string
+    Constant         bool
+    Mutability       string // For 'immutable' variables
+    FunctionSelector string // For variables with selectors
+    Value            string
+}
+
+// Function represents a function definition.
+type Function struct {
+    Name             string
+    Visibility       string
+    StateMutability  string
+    Parameters       []Parameter
+    ReturnParameters []Parameter
+    Modifiers        []string
+    BaseFunctions    []int      // IDs of base functions
+    Overrides        []string   // Names of contracts being overridden
+}
+
+// Event represents an event definition.
+type Event struct {
+    Name       string
+    Parameters []Parameter
+}
+
+// Modifier represents a function modifier.
+type Modifier struct {
+    Name       string
+    Parameters []Parameter
+}
+
+// Struct represents a struct definition.
+type Struct struct {
+    Name    string
+    Members []Variable
+}
+
+// Enum represents an enum definition.
+type Enum struct {
+    Name   string
+    Values []string
+}
+
+// Parameter represents a function or event parameter.
+type Parameter struct {
+    Name string
+    Type string
+}
+
+// ABIFile represents the structure of the ABI JSON file including the AST.
 type ABIFile struct {
-	ContractName 				string     `json:"contractName,omitempty"`
-	ABI          				[]ABIEntry `json:"abi"`
-	AST          				AST        `json:"ast,omitempty"`
+    ContractName string      `json:"contractName,omitempty"`
+    ABI          interface{} `json:"abi,omitempty"` // We won't use ABI in this parser
+    AST          AST         `json:"ast,omitempty"`
 }
 
 // AST represents the Abstract Syntax Tree of the contract.
 type AST struct {
-	Nodes 							[]ASTNode `json:"nodes"`
-}
-
-// ABIEntry represents an entry in the ABI array.
-type ABIEntry struct {
-	Type            		string  `json:"type"`
-	Name            		string  `json:"name,omitempty"`
-	Inputs          		[]Param `json:"inputs,omitempty"`
-	Outputs         		[]Param `json:"outputs,omitempty"`
-	StateMutability 		string  `json:"stateMutability,omitempty"`
-}
-
-// Param represents a parameter in a function or event.
-type Param struct {
-	Name 								string `json:"name"`
-	Type 								string `json:"type"`
+    Nodes []ASTNode `json:"nodes"`
 }
 
 // ASTNode represents a node in the AST.
 type ASTNode struct {
-	ID               		int             `json:"id"`
-	NodeType         		string          `json:"nodeType"`
-	Name             		string          `json:"name,omitempty"`
-	Nodes            		[]ASTNode       `json:"nodes,omitempty"`
-	BaseContracts    		[]BaseContract  `json:"baseContracts,omitempty"`
-	Literals         		[]string        `json:"literals,omitempty"`
-	Parameters       		*ParameterList  `jsfon:"parameters,omitempty"`
-	ReturnParameters 		*ParameterList  `json:"returnParameters,omitempty"`
-	Visibility       		string          `json:"visibility,omitempty"`
-	StateMutability  		string          `json:"stateMutability,omitempty"`
-	Kind             		string          `json:"kind,omitempty"`
-	TypeName         		*TypeName       `json:"typeName,omitempty"`
-	StorageLocation  		string          `json:"storageLocation,omitempty"`
-}
-
-// ParameterList represents a list of parameters.
-type ParameterList struct {
-	Parameters 					[]ASTNode `json:"parameters"`
+    ID                     int               `json:"id"`
+    NodeType               string            `json:"nodeType"`
+    Name                   string            `json:"name,omitempty"`
+    AbsolutePath           string            `json:"absolutePath,omitempty"`
+    File                   string            `json:"file,omitempty"`
+    BaseContracts          []BaseContract    `json:"baseContracts,omitempty"`
+    Members                []ASTNode         `json:"members,omitempty"`
+    Modifiers              []ModifierInvocation `json:"modifiers,omitempty"`
+    Parameters             *ParameterList    `json:"parameters,omitempty"`
+    ReturnParameters       *ParameterList    `json:"returnParameters,omitempty"`
+    Visibility             string            `json:"visibility,omitempty"`
+    StateMutability        string            `json:"stateMutability,omitempty"`
+    Kind                   string            `json:"kind,omitempty"`
+    OverloadedDeclarations []int             `json:"overloadedDeclarations,omitempty"`
+    BaseFunctions          []int             `json:"baseFunctions,omitempty"`
+    Overrides              *OverrideSpecifier `json:"overrides,omitempty"`
+    FunctionSelector       string            `json:"functionSelector,omitempty"`
+    StorageLocation        string            `json:"storageLocation,omitempty"`
+    Constant               bool              `json:"constant,omitempty"`
+    Mutability             string            `json:"mutability,omitempty"`
+    StateVariable          bool              `json:"stateVariable,omitempty"`
+    Value                  interface{}       `json:"value,omitempty"`
+    TypeName               *TypeName         `json:"typeName,omitempty"`
+    Literals               []string          `json:"literals,omitempty"`
+    Nodes                  []ASTNode         `json:"nodes,omitempty"`
+    Scope                  int               `json:"scope,omitempty"`
+    Operator               string            `json:"operator,omitempty"`        // For UnaryOperation
+    SubExpression          *ASTNode          `json:"subExpression,omitempty"`   // For UnaryOperation
+    Expression             *ASTNode          `json:"expression,omitempty"`      // For FunctionCall
+		Arguments 							[]interface{} `json:"arguments,omitempty"` 					// For FunctionCall
+    HexValue               string            `json:"hexValue,omitempty"`        // For Literal nodes
+    IsConstant             bool              `json:"isConstant,omitempty"`      // For Literal nodes
+    IsLValue               bool              `json:"isLValue,omitempty"`        // For Literal nodes
+    IsPure                 bool              `json:"isPure,omitempty"`          // For Literal nodes
+    LeftExpression         *ASTNode          `json:"leftExpression,omitempty"`  // For BinaryOperation
+    RightExpression        *ASTNode          `json:"rightExpression,omitempty"` // For BinaryOperation
 }
 
 // BaseContract represents a base contract in inheritance.
 type BaseContract struct {
-	ID       						int      `json:"id"`
-	NodeType 						string   `json:"nodeType"`
-	Src      						string   `json:"src"`
-	BaseName 						BaseName `json:"baseName"`
+    BaseName BaseName `json:"baseName"`
 }
 
 // BaseName represents the name of a base contract.
 type BaseName struct {
-	ID                    int    `json:"id"`
-	Name                  string `json:"name"`
-	NodeType              string `json:"nodeType"`
-	ReferencedDeclaration int    `json:"referencedDeclaration"`
-	Src                   string `json:"src"`
+    Name string `json:"name"`
+}
+
+// ParameterList represents a list of parameters.
+type ParameterList struct {
+    Parameters []ASTNode `json:"parameters"`
+}
+
+// ModifierInvocation represents a modifier applied to a function.
+type ModifierInvocation struct {
+    ID           int       `json:"id"`
+    NodeType     string    `json:"nodeType"`
+    ModifierName ASTNode   `json:"modifierName"`
+    Arguments    []ASTNode `json:"arguments,omitempty"`
+    Kind         string    `json:"kind,omitempty"`
+    Src          string    `json:"src"`
+}
+
+// OverrideSpecifier represents function overrides.
+type OverrideSpecifier struct {
+    ID        int       `json:"id"`
+    NodeType  string    `json:"nodeType"`
+    Overrides []ASTNode `json:"overrides"`
+    Src       string    `json:"src"`
 }
 
 // TypeName represents the type of a variable or parameter.
 type TypeName struct {
-	ID               			int               `json:"id"`
-	Name             			string            `json:"name"`
-	NodeType         			string            `json:"nodeType"`
-	Src              			string            `json:"src"`
-	StateMutability  			string            `json:"stateMutability,omitempty"`
-	TypeDescriptions 			*TypeDescriptions `json:"typeDescriptions,omitempty"`
+    NodeType         string            `json:"nodeType"`
+    Name             string            `json:"name,omitempty"`
+    Path             string            `json:"path,omitempty"`
+    BaseType         *TypeName         `json:"baseType,omitempty"`    // For ArrayTypeName
+    Length           interface{}       `json:"length,omitempty"`      // For ArrayTypeName
+    KeyType          *TypeName         `json:"keyType,omitempty"`     // For Mapping
+    ValueType        *TypeName         `json:"valueType,omitempty"`   // For Mapping
+    TypeDescriptions *TypeDescriptions `json:"typeDescriptions,omitempty"`
 }
 
 // TypeDescriptions provides type information.
 type TypeDescriptions struct {
-	TypeIdentifier 				string `json:"typeIdentifier"`
-	TypeString     				string `json:"typeString"`
+    TypeIdentifier string `json:"typeIdentifier"`
+    TypeString     string `json:"typeString"`
 }
 
-// Contract represents a smart contract with its functions and events.
-type Contract struct {
-	Name      						string
-	Functions 						[]*Function
-	Events    						[]*Event
-	Constructor 					*Constructor
-	Inherits  						[]string
-	Pragma    						string
+// ParseAllContracts parses all contracts in the specified data folder.
+func ParseAllContracts(dataFolder string) (map[string]*Contract, error) {
+    contracts := make(map[string]*Contract)
+    err := filepath.Walk(dataFolder, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return fmt.Errorf("error accessing file %s: %w", path, err)
+        }
+        if !info.IsDir() && filepath.Ext(path) == ".json" {
+            contract, err := ParseContractFile(path)
+            if err != nil {
+                return fmt.Errorf("error parsing file %s: %w", path, err)
+            }
+						if contract.Name != "" {
+							contracts[contract.Name] = contract
+						}
+        }
+        return nil
+    })
+    if err != nil {
+        return nil, err
+    }
+    return contracts, nil
 }
 
-type Constructor struct {
-	Inputs 								[]Param
-	StateMutability 			string
+// ParseContractFile parses a single contract file and extracts the contract information.
+func ParseContractFile(path string) (*Contract, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+
+    var abiFile ABIFile
+    err = json.Unmarshal(data, &abiFile)
+    if err != nil {
+        return nil, fmt.Errorf("failed to parse contract file %s: %w", path, err)
+    }
+
+    contract := &Contract{
+        Name: abiFile.ContractName,
+    }
+
+    // Process the AST
+    if len(abiFile.AST.Nodes) > 0 {
+        err := ExtractContractInfoFromAST(abiFile.AST, contract)
+        if err != nil {
+            return nil, err
+        }
+    } else {
+        return nil, fmt.Errorf("no AST found in file %s", path)
+    }
+
+    return contract, nil
 }
 
-// Function represents a function in a contract.
-type Function struct {
-	Name            			string
-	Inputs          			[]Param
-	Outputs         			[]Param
-	StateMutability 			string
+// ExtractContractInfoFromAST extracts information from the AST and populates the contract struct.
+func ExtractContractInfoFromAST(ast AST, contract *Contract) error {
+    for _, node := range ast.Nodes {
+        switch node.NodeType {
+        case "PragmaDirective":
+            contract.Pragma = ExtractPragmaDirective(node)
+        case "ImportDirective":
+            imp := ExtractImportDirective(node)
+            contract.Imports = append(contract.Imports, imp)
+        case "ContractDefinition":
+            // Process the contract definition
+            if contract.Name == "" {
+                contract.Name = node.Name
+            }
+            ExtractContractDefinition(node, contract)
+				// TODO - should handle only struct definition in a file
+        }
+    }
+    return nil
 }
 
-// Event represents an event in a contract.
-type Event struct {
-	Name   								string
-	Inputs 								[]Param
-}
-
-// ParseABIFile parses a single ABI file and extracts the Contract information.
-func ParseABIFile(path string) (*Contract, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	// Try to unmarshal as an array first
-	var abiEntries []ABIEntry
-	err = json.Unmarshal(data, &abiEntries)
-	if err == nil {
-		// Successfully parsed as array
-		// No 'ast' field, so inheritance is nil
-		contractName := filepath.Base(path)
-		contractName = contractName[:len(contractName)-len(filepath.Ext(contractName))]
-		contract := &Contract{
-			Name: contractName,
-		}
-		// Process abiEntries to populate functions and events
-		for _, entry := range abiEntries {
-			switch entry.Type {
-			case "function":
-				function := &Function{
-					Name:            entry.Name,
-					Inputs:          entry.Inputs,
-					Outputs:         entry.Outputs,
-					StateMutability: entry.StateMutability,
-				}
-				contract.Functions = append(contract.Functions, function)
-			case "event":
-				event := &Event{
-					Name:   entry.Name,
-					Inputs: entry.Inputs,
-				}
-				contract.Events = append(contract.Events, event)
-			case "constructor":
-				constructor := &Constructor{
-					Inputs:          entry.Inputs,
-					StateMutability: entry.StateMutability,
-				}
-				fmt.Println(constructor)
-				contract.Constructor = constructor
-			}
-		}
-		return contract, nil
-	}
-
-	// Try to unmarshal as ABIFile
-	var abiFile ABIFile
-	err = json.Unmarshal(data, &abiFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse ABI file %s: %w", path, err)
-	}
-
-	// Now process abiFile
-	contractName := abiFile.ContractName
-	if contractName == "" {
-		contractName = filepath.Base(path)
-		contractName = contractName[:len(contractName)-len(filepath.Ext(contractName))]
-	}
-
-	contract := &Contract{
-		Name: contractName,
-	}
-	// Process abiEntries to populate functions and events
-	for _, entry := range abiFile.ABI {
-		switch entry.Type {
-		case "function":
-			function := &Function{
-				Name:            entry.Name,
-				Inputs:          entry.Inputs,
-				Outputs:         entry.Outputs,
-				StateMutability: entry.StateMutability,
-			}
-			contract.Functions = append(contract.Functions, function)
-		case "event":
-			event := &Event{
-				Name:   entry.Name,
-				Inputs: entry.Inputs,
-			}
-			contract.Events = append(contract.Events, event)
-		case "constructor":
-			constructor := &Constructor{
-				Inputs:          entry.Inputs,
-				StateMutability: entry.StateMutability,
-			}
-			contract.Constructor = constructor
-		}
-	}
-
-	// Extract information from AST if available
-	if len(abiFile.AST.Nodes) > 0 {
-		ExtractInfoFromAST(abiFile.AST, contract)
-	}
-
-	return contract, nil
-}
-
-// ExtractInfoFromAST extracts inheritance and pragma information from the AST and populates the contract.
-func ExtractInfoFromAST(ast AST, contract *Contract) {
-	for _, node := range ast.Nodes {
-		switch node.NodeType {
-		case "ContractDefinition":
-			ExtractContractDefinition(node, contract)
-		case "PragmaDirective":
-			contract.Pragma = ExtractPragmaDirective(node)
-		}
-	}
-}
-
-// ExtractContractDefinition extracts inheritance and functions from a ContractDefinition node.
-func ExtractContractDefinition(node ASTNode, contract *Contract) {
-	// Extract inheritance
-	for _, baseContract := range node.BaseContracts {
-		contract.Inherits = append(contract.Inherits, baseContract.BaseName.Name)
-	}
-	// Process child nodes for functions, events, etc.
-	for _, childNode := range node.Nodes {
-		switch childNode.NodeType {
-		case "FunctionDefinition":
-			function := ExtractFunction(childNode)
-			contract.Functions = append(contract.Functions, function)
-		case "EventDefinition":
-			event := ExtractEvent(childNode)
-			contract.Events = append(contract.Events, event)
-		}
-	}
-}
-
-// ExtractFunction extracts a Function from a FunctionDefinition node.
-func ExtractFunction(node ASTNode) *Function {
-	function := &Function{
-		Name:            node.Name,
-		StateMutability: node.StateMutability,
-	}
-	// Extract inputs
-	if node.Parameters != nil {
-		for _, paramNode := range node.Parameters.Parameters {
-			if paramNode.NodeType == "VariableDeclaration" {
-				param := Param{
-					Name: paramNode.Name,
-					Type: extractTypeName(paramNode.TypeName),
-				}
-				function.Inputs = append(function.Inputs, param)
-			}
-		}
-	}
-	// Extract outputs
-	if node.ReturnParameters != nil {
-		for _, paramNode := range node.ReturnParameters.Parameters {
-			if paramNode.NodeType == "VariableDeclaration" {
-				param := Param{
-					Name: paramNode.Name,
-					Type: extractTypeName(paramNode.TypeName),
-				}
-				function.Outputs = append(function.Outputs, param)
-			}
-		}
-	}
-	return function
-}
-
-// ExtractEvent extracts an Event from an EventDefinition node.
-func ExtractEvent(node ASTNode) *Event {
-	event := &Event{
-		Name: node.Name,
-	}
-	// Extract inputs
-	if node.Parameters != nil {
-		for _, paramNode := range node.Parameters.Parameters {
-			if paramNode.NodeType == "VariableDeclaration" {
-				param := Param{
-					Name: paramNode.Name,
-					Type: extractTypeName(paramNode.TypeName),
-				}
-				event.Inputs = append(event.Inputs, param)
-			}
-		}
-	}
-	return event
-}
-
-// ExtractPragmaDirective extracts the pragma directive from a PragmaDirective node.
+// ExtractPragmaDirective extracts the pragma directive.
 func ExtractPragmaDirective(node ASTNode) string {
-	pragma := ""
-	for _, literal := range node.Literals {
-		pragma += literal + ""
+    return fmt.Sprintf("pragma %s;", strings.Join(node.Literals, ""))
+}
+
+// ExtractImportDirective extracts the import directive.
+func ExtractImportDirective(node ASTNode) Import {
+    return Import{
+        AbsolutePath: node.AbsolutePath,
+        File:         node.File,
+        Alias:        node.Name, // Adjust if aliasing is handled differently
+    }
+}
+
+// ExtractContractDefinition processes the ContractDefinition node.
+func ExtractContractDefinition(node ASTNode, contract *Contract) {
+    // Inheritance
+    for _, baseContract := range node.BaseContracts {
+        contract.Inherits = append(contract.Inherits, baseContract.BaseName.Name)
+    }
+    // Process members
+    for _, member := range node.Nodes {
+        switch member.NodeType {
+        case "VariableDeclaration":
+            variable := ExtractVariable(member)
+            contract.Variables = append(contract.Variables, variable)
+        case "FunctionDefinition":
+            function := ExtractFunction(member)
+            contract.Functions = append(contract.Functions, function)
+        case "EventDefinition":
+            event := ExtractEvent(member)
+            contract.Events = append(contract.Events, event)
+        case "ModifierDefinition":
+            modifier := ExtractModifier(member)
+            contract.Modifiers = append(contract.Modifiers, modifier)
+        case "StructDefinition":
+            strct := ExtractStruct(member)
+            contract.Structs = append(contract.Structs, strct)
+        case "EnumDefinition":
+            enum := ExtractEnum(member)
+            contract.Enums = append(contract.Enums, enum)
+        // Add other cases as needed
+        }
+    }
+}
+
+// ExtractVariable extracts a variable declaration.
+func ExtractVariable(node ASTNode) Variable {
+	variable := Variable{
+			Name:             node.Name,
+			Type:             extractTypeName(node.TypeName),
+			Visibility:       node.Visibility,
+			StateVariable:    node.StateVariable,
+			StorageLocation:  node.StorageLocation,
+			Constant:         node.Constant,
+			Mutability:       node.Mutability, // For 'immutable' variables
+			FunctionSelector: node.FunctionSelector,
 	}
-	return pragma
+	// Extract initial value if available
+	if node.Value != nil {
+			variable.Value = extractValue(node.Value)
+	}
+	return variable
+}
+
+// ExtractFunction extracts a function definition.
+func ExtractFunction(node ASTNode) Function {
+    function := Function{
+        Name:            node.Name,
+        Visibility:      node.Visibility,
+        StateMutability: node.StateMutability,
+        Modifiers:       ExtractModifiers(node),
+        BaseFunctions:   node.BaseFunctions,
+    }
+    // Handle overrides
+    if node.Overrides != nil {
+        for _, override := range node.Overrides.Overrides {
+            function.Overrides = append(function.Overrides, override.Name)
+        }
+    }
+    // Parameters
+    if node.Parameters != nil {
+        for _, paramNode := range node.Parameters.Parameters {
+            param := ExtractParameter(paramNode)
+            function.Parameters = append(function.Parameters, param)
+        }
+    }
+    // Return Parameters
+    if node.ReturnParameters != nil {
+        for _, paramNode := range node.ReturnParameters.Parameters {
+            param := ExtractParameter(paramNode)
+            function.ReturnParameters = append(function.ReturnParameters, param)
+        }
+    }
+    return function
+}
+
+func extractValueFromNode(node *ASTNode) string {
+	if node == nil {
+			return ""
+	}
+	switch node.NodeType {
+	case "Literal":
+			if node.Value != nil {
+					return fmt.Sprintf("%v", node.Value)
+			}
+			if node.HexValue != "" {
+					return node.HexValue
+			}
+	case "FunctionCall":
+			return extractFunctionCall(node)
+	case "Identifier":
+			return node.Name
+	case "UnaryOperation":
+			operand := extractValue(node.SubExpression)
+			return fmt.Sprintf("%s%s", node.Operator, operand)
+	case "BinaryOperation":
+			left := extractValue(node.LeftExpression)
+			right := extractValue(node.RightExpression)
+			return fmt.Sprintf("(%s %s %s)", left, node.Operator, right)
+	default:
+			fmt.Printf("Unhandled node type in value extraction: %s\n", node.NodeType)
+			return ""
+	}
+	return ""
+}
+
+
+
+// ExtractEvent extracts an event definition.
+func ExtractEvent(node ASTNode) Event {
+    event := Event{
+        Name: node.Name,
+    }
+    // Parameters
+    if node.Parameters != nil {
+        for _, paramNode := range node.Parameters.Parameters {
+            param := ExtractParameter(paramNode)
+            event.Parameters = append(event.Parameters, param)
+        }
+    }
+    return event
+}
+
+// ExtractModifier extracts a function modifier.
+func ExtractModifier(node ASTNode) Modifier {
+    modifier := Modifier{
+        Name: node.Name,
+    }
+    // Parameters
+    if node.Parameters != nil {
+        for _, paramNode := range node.Parameters.Parameters {
+            param := ExtractParameter(paramNode)
+            modifier.Parameters = append(modifier.Parameters, param)
+        }
+    }
+    return modifier
+}
+
+// ExtractStruct extracts a struct definition.
+func ExtractStruct(node ASTNode) Struct {
+    s := Struct{
+        Name: node.Name,
+    }
+    for _, member := range node.Members {
+        variable := ExtractVariable(member)
+        s.Members = append(s.Members, variable)
+    }
+    return s
+}
+
+// ExtractEnum extracts an enum definition.
+func ExtractEnum(node ASTNode) Enum {
+    enum := Enum{
+        Name: node.Name,
+    }
+    for _, member := range node.Members {
+        if member.NodeType == "EnumValue" {
+            enum.Values = append(enum.Values, member.Name)
+        }
+    }
+    return enum
+}
+
+// ExtractParameter extracts a parameter from a VariableDeclaration node.
+func ExtractParameter(node ASTNode) Parameter {
+    return Parameter{
+        Name: node.Name,
+        Type: extractTypeName(node.TypeName),
+    }
+}
+
+// ExtractModifiers extracts modifiers applied to a function.
+func ExtractModifiers(node ASTNode) []string {
+    var modifiers []string
+    for _, mod := range node.Modifiers {
+        modifiers = append(modifiers, mod.ModifierName.Name)
+    }
+    return modifiers
 }
 
 // extractTypeName extracts the type name from a TypeName node.
 func extractTypeName(typeName *TypeName) string {
-	if typeName == nil {
-		return ""
+    if typeName == nil {
+        return ""
+    }
+    switch typeName.NodeType {
+    case "ElementaryTypeName":
+        return typeName.Name
+    case "UserDefinedTypeName":
+        if typeName.Name != "" {
+            return typeName.Name
+        }
+        return typeName.Path
+    case "Mapping":
+        // Handle mapping types
+        keyType := extractTypeName(typeName.KeyType)
+        valueType := extractTypeName(typeName.ValueType)
+        return fmt.Sprintf("mapping(%s => %s)", keyType, valueType)
+    case "ArrayTypeName":
+        // Handle array types
+        baseType := extractTypeName(typeName.BaseType)
+        if typeName.Length != nil {
+            return fmt.Sprintf("%s[%v]", baseType, typeName.Length)
+        }
+        return fmt.Sprintf("%s[]", baseType)
+    default:
+        return ""
+    }
+}
+
+// extractValue extracts the value from an ASTNode representing a value.
+func extractValue(value interface{}) string {
+	if value == nil {
+			return ""
 	}
-	switch typeName.NodeType {
-	case "ElementaryTypeName":
-		return typeName.Name
-	case "UserDefinedTypeName":
-		return typeName.Name
+
+	switch v := value.(type) {
+	case string:
+			return v
+	case float64, int, bool:
+			return fmt.Sprintf("%v", v)
+	case map[string]interface{}:
+			// This is likely an ASTNode represented as a map
+			nodeData, err := json.Marshal(v)
+			if err != nil {
+					fmt.Printf("Error marshaling node: %v\n", err)
+					return ""
+			}
+			node := &ASTNode{}
+			err = json.Unmarshal(nodeData, node)
+			if err != nil {
+					fmt.Printf("Error unmarshaling node: %v\n", err)
+					return ""
+			}
+			return extractValueFromNode(node)
 	default:
-		return ""
+			fmt.Printf("Unhandled value type: %T\n", v)
+			return ""
 	}
 }
 
-// ParseAllABIs parses all ABI files in the data folder.
-func ParseAllABIs(dataFolder string) (map[string]*Contract, error) {
-	contracts := make(map[string]*Contract)
-	err := filepath.Walk(dataFolder, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return fmt.Errorf("error accessing file %s: %w", path, err)
-		}
-		if !info.IsDir() && filepath.Ext(path) == ".json" {
-			contract, err := ParseABIFile(path)
-			if err != nil {
-				return fmt.Errorf("error parsing file %s: %w", path, err)
-			}
-			contracts[contract.Name] = contract
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+
+// extractFunctionCall extracts information from a FunctionCall node used as a value.
+func extractFunctionCall(node *ASTNode) string {
+	if node == nil || node.Expression == nil {
+			return ""
 	}
-	return contracts, nil
+	functionName := ""
+	if node.Expression.NodeType == "Identifier" {
+			functionName = node.Expression.Name
+	} else {
+			functionName = extractValue(node.Expression)
+	}
+	args := []string{}
+	for _, arg := range node.Arguments {
+			argValue := extractValue(arg)
+			args = append(args, argValue)
+	}
+	return fmt.Sprintf("%s(%s)", functionName, strings.Join(args, ", "))
 }
