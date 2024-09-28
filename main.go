@@ -268,23 +268,27 @@ func main() {
                         variableDetails += fmt.Sprintf("Value: %s\n", selectedVariable.Value)
                     }
                     codeParagraph.Text = variableDetails
-                case "Events":
-                    var selectedEvent parser.Event
-                    for _, e := range selectedContract.Events {
-                        if e.Name == itemName {
-                            selectedEvent = e
-                            break
-                        }
-                    }
-                    // Display event details
-                    eventDetails := fmt.Sprintf("Event: %s\n", selectedEvent.Name)
-                    if len(selectedEvent.Parameters) > 0 {
-                        eventDetails += "Parameters:\n"
-                        for _, param := range selectedEvent.Parameters {
-                            eventDetails += fmt.Sprintf("  - %s: %s\n", param.Name, param.Type)
-                        }
-                    }
-                    codeParagraph.Text = eventDetails
+									case "Events":
+										var selectedEvent parser.Event
+										for _, e := range selectedContract.Events {
+												if e.Name == itemName {
+														selectedEvent = e
+														break
+												}
+										}
+										// Display event details
+										eventDetails := fmt.Sprintf("Event: %s\n", selectedEvent.Name)
+										if len(selectedEvent.Parameters) > 0 {
+												eventDetails += "Parameters:\n"
+												for _, param := range selectedEvent.Parameters {
+														indexedStr := ""
+														if param.Indexed {
+																indexedStr = "(indexed)"
+														}
+														eventDetails += fmt.Sprintf("  - %s %s %s\n", param.Type, param.Name, indexedStr)
+												}
+										}
+										codeParagraph.Text = eventDetails
                 case "Structs":
                     var selectedStruct parser.Struct
                     for _, s := range selectedContract.Structs {

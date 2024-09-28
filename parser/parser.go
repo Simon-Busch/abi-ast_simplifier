@@ -85,6 +85,7 @@ type Enum struct {
 type Parameter struct {
     Name string
     Type string
+		Indexed bool // For event parameters
 }
 
 // ABIFile represents the structure of the ABI JSON file including the AST.
@@ -137,6 +138,7 @@ type ASTNode struct {
     IsPure                 bool              `json:"isPure,omitempty"`          // For Literal nodes
     LeftExpression         *ASTNode          `json:"leftExpression,omitempty"`  // For BinaryOperation
     RightExpression        *ASTNode          `json:"rightExpression,omitempty"` // For BinaryOperation
+    Indexed *bool `json:"indexed,omitempty"`  // Add this line
 }
 
 // BaseContract represents a base contract in inheritance.
@@ -410,17 +412,17 @@ func extractValueFromNode(node *ASTNode) string {
 
 // ExtractEvent extracts an event definition.
 func ExtractEvent(node ASTNode) Event {
-    event := Event{
-        Name: node.Name,
-    }
-    // Parameters
-    if node.Parameters != nil {
-        for _, paramNode := range node.Parameters.Parameters {
-            param := ExtractParameter(paramNode)
-            event.Parameters = append(event.Parameters, param)
-        }
-    }
-    return event
+	event := Event{
+			Name: node.Name,
+	}
+	// Parameters
+	if node.Parameters != nil {
+			for _, paramNode := range node.Parameters.Parameters {
+					param := ExtractParameter(paramNode)
+					event.Parameters = append(event.Parameters, param)
+			}
+	}
+	return event
 }
 
 // ExtractModifier extracts a function modifier.
@@ -465,10 +467,20 @@ func ExtractEnum(node ASTNode) Enum {
 
 // ExtractParameter extracts a parameter from a VariableDeclaration node.
 func ExtractParameter(node ASTNode) Parameter {
-    return Parameter{
-        Name: node.Name,
-        Type: extractTypeName(node.TypeName),
-    }
+	param := Parameter{
+			Name: node.Name,
+			Type: extractTypeName(node.TypeName),
+	}
+
+	// Check if 'Indexed' is set (only relevant for event parameters)
+	if node.Indexed != nil {
+			param.Indexed = *node.Indexed
+	} else {
+			// Default value, assuming 'indexed' is false if not specified
+			param.Indexed = false
+	}
+
+	return param
 }
 
 // ExtractModifiers extracts modifiers applied to a function.
