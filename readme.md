@@ -27,9 +27,9 @@ This project is still a WIP.
 
 ### Prerequisites
 
-- [Go](https://golang.org/dl/) (version 1.13 or later)
+- [Go](https://golang.org/dl/) (version 1.20 or later)
 - [Git](https://git-scm.com/downloads)
-- Solidity compiler to generate AST JSON files (optional if you already have AST files)
+- Solidity compiler to generate AST JSON files (optional if you already have AST files) -- prefered `foundry`.
 
 ### Clone the Repository
 
