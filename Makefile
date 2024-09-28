@@ -1,8 +1,8 @@
 build:
-	@go build -o bin/abiSimplifier
+	@go build -o bin/SolAstParser
 
 run: build
-	@./bin/abiSimplifier
+	@./bin/SolAstParser
 
 test:
 	@go test -v ./...

@@ -45,12 +45,12 @@ cd solidity-ast-parser
 
 1. Prepare Contract AST Files: Place your Solidity contract JSON files (containing the AST) into the data/ directory. These JSON files can be generated using the Solidity compiler with the appropriate flags.
 
-Can be done either with: `solc --ast-json -o data/ YourContract.sol`
-Or
+Can be done with:
 `forge build --ast` for a whole project.
 
-2. Build && run the Application: `make run`
+2. Create a `data` folder and paste all desired build folder or all the json inside.
 
+3. Build && run the Application: `make run`
 
 ### Navigating the Terminal UI
 
