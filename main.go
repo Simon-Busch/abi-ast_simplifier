@@ -109,22 +109,38 @@ func main() {
 
                 // Populate details list with functions, variables, events, structs, enums
                 var details []string
+
+								// Constructor
+								if selectedContract.Constructor != nil {
+									details = append(details, "[Constructor](fg:cyan)")
+									details = append(details, "  - Constructor")
+								}
+
+								// Functions
                 details = append(details, "[Functions](fg:cyan)")
                 for _, function := range contract.Functions {
                     details = append(details, "  "+function.Name)
                 }
+
+								// Variables
                 details = append(details, "[Variables](fg:cyan)")
                 for _, variable := range contract.Variables {
                     details = append(details, "  "+variable.Name)
                 }
+
+								// Events
                 details = append(details, "[Events](fg:cyan)")
                 for _, event := range contract.Events {
                     details = append(details, "  "+event.Name)
                 }
+
+								// Structs
                 details = append(details, "[Structs](fg:cyan)")
                 for _, strct := range contract.Structs {
                     details = append(details, "  "+strct.Name)
                 }
+
+								// Enums
                 details = append(details, "[Enums](fg:cyan)")
                 for _, enum := range contract.Enums {
                     details = append(details, "  "+enum.Name)
@@ -180,6 +196,25 @@ func main() {
 
                 itemName := strings.TrimSpace(selectedRow)
                 switch itemType {
+								case "Constructor":
+									// Display constructor details
+									constructor := selectedContract.Constructor
+									constructorDetails := "Constructor\n"
+									if len(constructor.Parameters) > 0 {
+											constructorDetails += "Parameters:\n"
+											for _, param := range constructor.Parameters {
+													constructorDetails += fmt.Sprintf("  - %s: %s\n", param.Name, param.Type)
+											}
+									}
+									if len(constructor.Modifiers) > 0 {
+											constructorDetails += "Modifiers:\n"
+											for _, mod := range constructor.Modifiers {
+													constructorDetails += fmt.Sprintf("  - %s\n", mod)
+											}
+									}
+									constructorDetails += fmt.Sprintf("Visibility: %s\n", constructor.Visibility)
+									constructorDetails += fmt.Sprintf("State Mutability: %s\n", constructor.StateMutability)
+									codeParagraph.Text = constructorDetails
                 case "Functions":
                     var selectedFunction parser.Function
                     for _, fn := range selectedContract.Functions {

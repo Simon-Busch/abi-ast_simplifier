@@ -15,6 +15,7 @@ type Contract struct {
     Pragma      string
     Imports     []Import
     Inherits    []string
+		Constructor *Function
     Variables   []Variable
     Functions   []Function
     Events      []Event
@@ -47,6 +48,7 @@ type Variable struct {
 type Function struct {
     Name             string
     Visibility       string
+		Kind             string // For 'constructor' functions
     StateMutability  string
     Parameters       []Parameter
     ReturnParameters []Parameter
@@ -291,8 +293,12 @@ func ExtractContractDefinition(node ASTNode, contract *Contract) {
             contract.Variables = append(contract.Variables, variable)
         case "FunctionDefinition":
             function := ExtractFunction(member)
-            contract.Functions = append(contract.Functions, function)
-        case "EventDefinition":
+            if function.Kind == "constructor" {
+							contract.Constructor = &function
+					} else {
+							contract.Functions = append(contract.Functions, function)
+					}
+				case "EventDefinition":
             event := ExtractEvent(member)
             contract.Events = append(contract.Events, event)
         case "ModifierDefinition":
@@ -304,7 +310,6 @@ func ExtractContractDefinition(node ASTNode, contract *Contract) {
         case "EnumDefinition":
             enum := ExtractEnum(member)
             contract.Enums = append(contract.Enums, enum)
-        // Add other cases as needed
         }
     }
 }
@@ -332,6 +337,7 @@ func ExtractVariable(node ASTNode) Variable {
 func ExtractFunction(node ASTNode) Function {
     function := Function{
         Name:            node.Name,
+				Kind:            node.Kind,
         Visibility:      node.Visibility,
         StateMutability: node.StateMutability,
         Modifiers:       ExtractModifiers(node),
