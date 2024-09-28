@@ -2,11 +2,11 @@
 package parser
 
 import (
-    "encoding/json"
-    "fmt"
-    "os"
-    "path/filepath"
-    "strings"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 )
 
 // Contract represents a smart contract with all its components.
@@ -174,14 +174,24 @@ type OverrideSpecifier struct {
 
 // TypeName represents the type of a variable or parameter.
 type TypeName struct {
-    NodeType         string            `json:"nodeType"`
-    Name             string            `json:"name,omitempty"`
-    Path             string            `json:"path,omitempty"`
-    BaseType         *TypeName         `json:"baseType,omitempty"`    // For ArrayTypeName
-    Length           interface{}       `json:"length,omitempty"`      // For ArrayTypeName
-    KeyType          *TypeName         `json:"keyType,omitempty"`     // For Mapping
-    ValueType        *TypeName         `json:"valueType,omitempty"`   // For Mapping
-    TypeDescriptions *TypeDescriptions `json:"typeDescriptions,omitempty"`
+		NodeType         string            `json:"nodeType"`
+		Name             string            `json:"name,omitempty"`
+		Path             string            `json:"path,omitempty"`
+		BaseType         *TypeName         `json:"baseType,omitempty"`    // For ArrayTypeName
+		Length           interface{}       `json:"length,omitempty"`      // For ArrayTypeName
+		KeyType          *TypeName         `json:"keyType,omitempty"`     // For Mapping
+		ValueType        *TypeName         `json:"valueType,omitempty"`   // For Mapping
+		TypeDescriptions *TypeDescriptions `json:"typeDescriptions,omitempty"`
+		PathNode         *IdentifierPath   `json:"pathNode,omitempty"`    // Updated to use IdentifierPath struct
+}
+
+type IdentifierPath struct {
+		ID                 int      `json:"id"`
+		Name               string   `json:"name"`
+		NameLocations      []string `json:"nameLocations,omitempty"`
+		NodeType           string   `json:"nodeType"`
+		ReferencedDeclaration int   `json:"referencedDeclaration,omitempty"`
+		Src                string   `json:"src"`
 }
 
 // TypeDescriptions provides type information.
@@ -289,12 +299,12 @@ func ExtractContractDefinition(node ASTNode, contract *Contract) {
     for _, member := range node.Nodes {
         switch member.NodeType {
         case "VariableDeclaration":
-            variable := ExtractVariable(member)
-            contract.Variables = append(contract.Variables, variable)
+					variable := ExtractVariable(member)
+					contract.Variables = append(contract.Variables, variable)
         case "FunctionDefinition":
-            function := ExtractFunction(member)
-            if function.Kind == "constructor" {
-							contract.Constructor = &function
+					function := ExtractFunction(member)
+					if function.Kind == "constructor" {
+						contract.Constructor = &function
 					} else {
 							contract.Functions = append(contract.Functions, function)
 					}
@@ -472,32 +482,36 @@ func ExtractModifiers(node ASTNode) []string {
 
 // extractTypeName extracts the type name from a TypeName node.
 func extractTypeName(typeName *TypeName) string {
-    if typeName == nil {
-        return ""
-    }
-    switch typeName.NodeType {
-    case "ElementaryTypeName":
-        return typeName.Name
-    case "UserDefinedTypeName":
-        if typeName.Name != "" {
-            return typeName.Name
-        }
-        return typeName.Path
-    case "Mapping":
-        // Handle mapping types
-        keyType := extractTypeName(typeName.KeyType)
-        valueType := extractTypeName(typeName.ValueType)
-        return fmt.Sprintf("mapping(%s => %s)", keyType, valueType)
-    case "ArrayTypeName":
-        // Handle array types
-        baseType := extractTypeName(typeName.BaseType)
-        if typeName.Length != nil {
-            return fmt.Sprintf("%s[%v]", baseType, typeName.Length)
-        }
-        return fmt.Sprintf("%s[]", baseType)
-    default:
-        return ""
-    }
+	if typeName == nil {
+			return ""
+	}
+	switch typeName.NodeType {
+	case "ElementaryTypeName":
+			return typeName.Name
+	case "UserDefinedTypeName":
+			if typeName.TypeDescriptions != nil && typeName.TypeDescriptions.TypeString != "" {
+					return typeName.TypeDescriptions.TypeString
+			} else if typeName.Name != "" {
+					return typeName.Name
+			} else if typeName.PathNode != nil && typeName.PathNode.Name != "" {
+					return typeName.PathNode.Name
+			}
+			return ""
+	case "Mapping":
+			// Handle mapping types
+			keyType := extractTypeName(typeName.KeyType)
+			valueType := extractTypeName(typeName.ValueType)
+			return fmt.Sprintf("mapping(%s => %s)", keyType, valueType)
+	case "ArrayTypeName":
+			// Handle array types
+			baseType := extractTypeName(typeName.BaseType)
+			if typeName.Length != nil {
+					return fmt.Sprintf("%s[%v]", baseType, typeName.Length)
+			}
+			return fmt.Sprintf("%s[]", baseType)
+	default:
+			return ""
+	}
 }
 
 // extractValue extracts the value from an ASTNode representing a value.
