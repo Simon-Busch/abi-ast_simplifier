@@ -29,7 +29,7 @@ func main() {
     // Create widgets
     contractsList := widgets.NewList()
     contractsList.Title = "Contracts"
-    contractsList.TextStyle = termui.NewStyle(termui.ColorYellow)
+    contractsList.TextStyle = termui.NewStyle(termui.ColorGreen)
     contractsList.WrapText = false
 
     detailsList := widgets.NewList()

@@ -90,7 +90,7 @@ type Parameter struct {
 // ABIFile represents the structure of the ABI JSON file including the AST.
 type ABIFile struct {
     ContractName string      `json:"contractName,omitempty"`
-    ABI          interface{} `json:"abi,omitempty"` // We won't use ABI in this parser
+    // ABI          interface{} `json:"abi,omitempty"` // We won't use ABI in this parser
     AST          AST         `json:"ast,omitempty"`
 }
 

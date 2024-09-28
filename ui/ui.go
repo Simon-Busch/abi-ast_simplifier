@@ -16,11 +16,11 @@ func UpdateUI(contractsList *widgets.List, detailsList *widgets.List, codeParagr
 
     // Highlight selected widget
     if contractsListSelected {
-        contractsList.BorderStyle = termui.NewStyle(termui.ColorWhite)
-        detailsList.BorderStyle = termui.NewStyle(termui.ColorBlack)
-    } else if detailsListSelected {
-        contractsList.BorderStyle = termui.NewStyle(termui.ColorBlack)
+        contractsList.BorderStyle = termui.NewStyle(termui.ColorGreen)
         detailsList.BorderStyle = termui.NewStyle(termui.ColorWhite)
+    } else if detailsListSelected {
+        contractsList.BorderStyle = termui.NewStyle(termui.ColorWhite)
+        detailsList.BorderStyle = termui.NewStyle(termui.ColorGreen)
     }
 
     // Ensure SelectedRow is valid
