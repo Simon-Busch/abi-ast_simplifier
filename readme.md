@@ -19,9 +19,8 @@ This project is still a WIP.
 ## Features
 
 - **AST Parsing**: Parse Solidity contract JSON files containing ASTs to extract comprehensive information.
-- **Detailed Extraction**: Extract contracts' variables, functions (including constructors), events, modifiers, structs, enums, and inheritance information.
+- **Detailed Extraction**: Extract contracts' variables, functions, constructors, events, modifiers, structs, enums, and inheritance information.
 - **Interactive Terminal UI**: Navigate through contracts and their components using an intuitive terminal-based interface.
-- **Syntax Highlighting**: View detailed information with clear formatting and syntax highlighting.
 - **Supports Multiple Contracts**: Parse and explore multiple contracts within a specified directory.
 
 ## Installation
