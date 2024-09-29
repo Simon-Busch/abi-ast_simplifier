@@ -119,8 +119,16 @@ func main() {
 								// Functions
                 details = append(details, "[Functions](fg:cyan)")
                 for _, function := range contract.Functions {
-                    details = append(details, "  "+function.Name)
-                }
+									details = append(details, "  "+function.Name)
+								}
+
+								// Mappings
+								if len(selectedContract.Mappings) > 0 {
+									details = append(details, "[Mappings](fg:cyan)")
+									for _, mapping := range selectedContract.Mappings {
+											details = append(details, "  "+mapping.Name)
+									}
+								}
 
 								// Variables
                 details = append(details, "[Variables](fg:cyan)")
@@ -323,6 +331,19 @@ func main() {
                         }
                     }
                     codeParagraph.Text = enumDetails
+									case "Mappings":
+										var selectedMapping parser.Variable
+										for _, m := range selectedContract.Mappings {
+												if m.Name == itemName {
+														selectedMapping = m
+														break
+												}
+										}
+										// Display mapping details
+										mappingDetails := fmt.Sprintf("Mapping: %s\n", selectedMapping.Name)
+										mappingDetails += fmt.Sprintf("Type: %s\n", selectedMapping.Type)
+										mappingDetails += fmt.Sprintf("Visibility: %s\n", selectedMapping.Visibility)
+										codeParagraph.Text = mappingDetails
                 }
                 ui.UpdateUI(
                     contractsList,

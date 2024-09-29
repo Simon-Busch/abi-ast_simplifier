@@ -22,6 +22,7 @@ type Contract struct {
     Modifiers   []Modifier
     Structs     []Struct
     Enums       []Enum
+		Mappings 		[]Variable
 }
 
 // Import represents an import directive in Solidity.
@@ -138,7 +139,7 @@ type ASTNode struct {
     IsPure                 bool              `json:"isPure,omitempty"`          // For Literal nodes
     LeftExpression         *ASTNode          `json:"leftExpression,omitempty"`  // For BinaryOperation
     RightExpression        *ASTNode          `json:"rightExpression,omitempty"` // For BinaryOperation
-    Indexed *bool `json:"indexed,omitempty"`  // Add this line
+    Indexed 							 *bool 						 `json:"indexed,omitempty"`  				// Indexed parameter for events
 }
 
 // BaseContract represents a base contract in inheritance.
@@ -271,7 +272,6 @@ func ExtractContractInfoFromAST(ast AST, contract *Contract) error {
                 contract.Name = node.Name
             }
             ExtractContractDefinition(node, contract)
-				// TODO - should handle only struct definition in a file
         }
     }
     return nil
@@ -302,7 +302,11 @@ func ExtractContractDefinition(node ASTNode, contract *Contract) {
         switch member.NodeType {
         case "VariableDeclaration":
 					variable := ExtractVariable(member)
-					contract.Variables = append(contract.Variables, variable)
+					if member.TypeName != nil && member.TypeName.NodeType == "Mapping" {
+						contract.Mappings = append(contract.Mappings, variable)
+					} else {
+							contract.Variables = append(contract.Variables, variable)
+					}
         case "FunctionDefinition":
 					function := ExtractFunction(member)
 					if function.Kind == "constructor" {
