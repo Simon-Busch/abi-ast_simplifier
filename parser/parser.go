@@ -17,6 +17,7 @@ type Contract struct {
     Inherits    []string
 		Constructor *Function
     Variables   []Variable
+		Constants   []Variable
     Functions   []Function
     Events      []Event
     Modifiers   []Modifier
@@ -302,7 +303,9 @@ func ExtractContractDefinition(node ASTNode, contract *Contract) {
         switch member.NodeType {
         case "VariableDeclaration":
 					variable := ExtractVariable(member)
-					if member.TypeName != nil && member.TypeName.NodeType == "Mapping" {
+					if member.Constant {
+						contract.Constants = append(contract.Constants, variable)
+					} else if member.TypeName != nil && member.TypeName.NodeType == "Mapping" {
 						contract.Mappings = append(contract.Mappings, variable)
 					} else {
 							contract.Variables = append(contract.Variables, variable)
